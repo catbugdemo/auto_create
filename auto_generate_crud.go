@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+type CRUD interface {
+	initStruct()
+	formatCRUD() string
+}
+
 type St struct {
 	Stru interface{}            `json:"stru"` // 结构体
 	Info map[string]interface{} `json:"info"` // 无关痛痒，缺了也没关系
@@ -32,7 +37,7 @@ func (s *St) initStruct() {
 	s.parseName()
 
 	if s.LogOrSave == "" {
-		s.LogOrSave = `log.Printf("%+v",errors.WithStack(err))`
+		s.LogOrSave = `log.Printf("%%+v",errors.WithStack(err))`
 	}
 	s.parseValue()
 
@@ -137,10 +142,11 @@ import (
 
 // 转换为接口名称
 func (s St) parseLName() string {
+
 	var tmp strings.Builder
 	for _, str := range s.Info["name_list"].([]string) {
 		tmp.WriteString(strings.ToLower(str))
-		tmp.WriteString("-")
+		tmp.WriteString("_")
 	}
 	strl := tmp.String()
 	return strl[:len(strl)-1]
