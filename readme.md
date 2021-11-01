@@ -13,3 +13,27 @@
 
 
 ```
+
+## 自动生成 contrller 层
+```go
+// 生成 Controller 层
+func TestGenerateController(t *testing.T) {
+	c := Control{
+		ControlName: "GetPages", // 输入创建名称
+		Describe:    "获取落地页",    // 输入描述 -- 可不填
+		
+		// 是否需要绑定参数
+		Req: Req{
+			ReqBool: true, // 是否需要手动填写绑定参数，推荐3个以内为true
+			Req:     "",   // 请求名称,如果 ReqBool == true 不填
+		},
+		DbConfig: "c.MustGet(DB_CONFIG).(*gorm.DB)",
+
+		ServiceStr:     "",   // 一般不填 service层名称 一般只有 2 个返回 data,err
+		ReturnDataBool: true, // 是否需要返回数据
+
+		LogOrSave: "", // 默认不填
+	}
+	fmt.Println(GenerateController(c))
+}
+```
