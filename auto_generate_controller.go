@@ -6,15 +6,21 @@ import (
 )
 
 type Control struct {
-	ControlName    string // control名称
-	Describe       string // 描述
-	ReqBool        bool   // 是否自动创建绑定 3个以内推荐使用
-	Req            string // 如果 有ParamReq 不填写 Req 获取 models.Req
+	ControlName string // control名称
+	Describe    string // 描述
+
+	Req Req // 请求
+
 	ServiceStr     string // service 不填默认 `service.${control_name}`
 	ReturnDataBool bool   // service 是否有返回数据
 	DbConfig       string // 数据库填写
 
 	LogOrSave string // 输出或者打印
+}
+
+type Req struct {
+	ReqBool bool   // 是否自动创建绑定 3个以内推荐使用
+	Req     string // 如果 有ParamReq 不填写 Req 获取 models.Req
 }
 
 // ${describe} 描述
@@ -30,7 +36,7 @@ func ${control_name}(c *gin.Context) {
 	${req}
 	if err := c.Bind(&req); err != nil {
 		${log_or_save}
-		c.JSON(200, gin.H{"code": 1, "message": "request binding failed", "debug": err.Error()})
+		c.JSON(200, gin.H{"code": 1, "msg": "request binding failed", "debug": err.Error()})
 		return
 	}
 
@@ -38,25 +44,28 @@ func ${control_name}(c *gin.Context) {
 	${service_str}
 	if err != nil {
 		${log_or_save}
-		c.JSON(200, gin.H{"code": 2, "message": "service operate failed", "debug": err.Error()})
+		c.JSON(200, gin.H{"code": 2, "msg": "service operate failed", "debug": err.Error()})
 		return
 	}
 	${out}
 }
 `
 	str = strings.ReplaceAll(str, "${describe}", c.Describe)
-	str = strings.ReplaceAll(str, "${control_name}", c.ControlName)
 	str = strings.ReplaceAll(str, "${req}", c.checkoutReq())
 	str = strings.ReplaceAll(str, "${log_or_save}", c.checkoutLogOrSave())
 	str = strings.ReplaceAll(str, "${service_str}", c.checkoutServiceStr())
 	str = strings.ReplaceAll(str, "${out}", c.printOut())
 	str = strings.ReplaceAll(str, "${db_config}", c.checkoutDbConfig())
+	str = strings.ReplaceAll(str, "${control_name}", c.ControlName)
 
 	return str
 }
 
 func (c Control) checkoutReq() string {
-	if c.ReqBool {
+	if (Req{} == c.Req) {
+		return ""
+	}
+	if c.Req.ReqBool {
 		var str = `type Req struct {
 	// TODO 请填写请求参数
 	}

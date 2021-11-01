@@ -37,7 +37,7 @@ func (s *St) initStruct() {
 	s.parseName()
 
 	if s.LogOrSave == "" {
-		s.LogOrSave = `log.Printf("%%+v",errors.WithStack(err))`
+		s.LogOrSave = `log.Printf("%+v",errors.WithStack(err))`
 	}
 	s.parseValue()
 
@@ -103,7 +103,6 @@ func (s St) GenerateBefore(tmp string) string {
 	var str = `
 import (
 	"fmt"
-	"go-test/auto/models"
 	"log"
 	"strconv"
 	"time"

@@ -11,11 +11,13 @@ import (
 // 生成 Controller 层
 func TestGenerateController(t *testing.T) {
 	c := Control{
-		ControlName: "GetArrayPeopleTarget", // 输入创建名称
-		Describe:    "通过 1 2 级行业搜索定向包",      // 输入描述 -- 可不填
-
-		ReqBool:  true, // 是否需要手动填写绑定参数，推荐3个以内为true
-		Req:      "",   // 请求名称,如果 ReqBool == true 不填
+		ControlName: "GetPages", // 输入创建名称
+		Describe:    "获取落地页",    // 输入描述 -- 可不填
+		// 是否需要绑定参数
+		Req: Req{
+			ReqBool: true, // 是否需要手动填写绑定参数，推荐3个以内为true
+			Req:     "",   // 请求名称,如果 ReqBool == true 不填
+		},
 		DbConfig: "c.MustGet(DB_CONFIG).(*gorm.DB)",
 
 		ServiceStr:     "",   // 一般不填 service层名称 一般只有 2 个返回 data,err
@@ -26,6 +28,7 @@ func TestGenerateController(t *testing.T) {
 	fmt.Println(GenerateController(c))
 }
 
+// 生成底层模板
 func TestModels(t *testing.T) {
 	t.Run("models", func(t *testing.T) {
 		normal := Normal{
@@ -41,6 +44,7 @@ func TestModels(t *testing.T) {
 	})
 }
 
+// 自动生成 crud
 func TestCRUD(t *testing.T) {
 	type YtfAdvAccountInfo struct {
 		Id        int       `gorm:"column:id;default:" json:"id" form:"id"`
@@ -60,6 +64,5 @@ func TestCRUD(t *testing.T) {
 		Handlers:    "handlers",
 	}
 
-	crud := AutoGenerateCRUD(st)
-	fmt.Printf(crud)
+	fmt.Printf(AutoGenerateCRUD(st))
 }
