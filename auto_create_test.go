@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 生成 Controller 层
+/*// 生成 Controller 层
 func TestGenerateController(t *testing.T) {
 	c := Control{
-		ControlName: "GetPages", // 输入创建名称
-		Describe:    "获取落地页",    // 输入描述 -- 可不填
+		ControlName: "GetAdgroups", // 输入创建名称
+		Describe:    "获取广告组",       // 输入描述 -- 可不填
 		// 是否需要绑定参数
 		Req: Req{
 			ReqBool: true, // 是否需要手动填写绑定参数，推荐3个以内为true
@@ -26,22 +26,21 @@ func TestGenerateController(t *testing.T) {
 		LogOrSave: "", // 默认不填
 	}
 	fmt.Println(GenerateController(c))
-}
+}*/
 
 // 生成底层模板
 func TestModels(t *testing.T) {
-	t.Run("models", func(t *testing.T) {
-		normal := Normal{
-			DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "10.0.10.209", "5432", "ytf", "ytf", "disable", "ytf@2021"),
-			TableName:  "ytf_adv_account_info",
-			Driver:     "postgres",
-		}
+	normal := Normal{
+		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
+		TableName:  "smb_authorize",
+		Driver:     "postgres",
+	}
 
-		generate, err := AutoGenerateModel(&normal)
-		assert.Nil(t, err)
+	generate, err := AutoGenerateModel(&normal)
+	assert.Nil(t, err)
 
-		fmt.Printf(generate)
-	})
+	fmt.Printf(generate)
+
 }
 
 // 自动生成 crud
@@ -64,5 +63,5 @@ func TestCRUD(t *testing.T) {
 		Handlers:    "handlers",
 	}
 
-	fmt.Printf(AutoGenerateCRUD(st))
+	fmt.Printf(AutoGenerateCRUD(&st))
 }

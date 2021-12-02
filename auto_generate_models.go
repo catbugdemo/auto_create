@@ -326,8 +326,10 @@ func (o ${struct_name}) ArrayDeleteFromRedis(conn redis.Conn) error {
 func getTypeStruct(columns []Column) string {
 	var tmp string
 	for _, column := range columns {
-		tmp += fmt.Sprintf("    %s  %s    `gorm:\"column:%s;default:\" json:\"%s\" form:\"%s\"`\n",
-			underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName)
+		/*				tmp += fmt.Sprintf("    %s  %s    `gorm:\"column:%s;default:\" json:\"%s\" form:\"%s\"` // %s \n",
+						underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName,column.ColumnComment)*/
+		tmp += fmt.Sprintf("    %s  %s    `db:\"%s\" json:\"%s\" form:\"%s\"` // %s \n",
+			underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName, column.ColumnComment)
 	}
 	return tmp[:len(tmp)-1]
 }
@@ -406,8 +408,9 @@ func underLineToHump(s string) string {
 
 // 数据库列属性
 type Column struct {
-	ColumnName string `gorm:"column:column_name"` // column_name
-	ColumnType string `gorm:"column:column_type"` // column_type
+	ColumnName    string `gorm:"column:column_name"`    // column_name
+	ColumnType    string `gorm:"column:column_type"`    // column_type
+	ColumnComment string `gorm:"column:column_comment"` // column_comment
 }
 
 // 根据数据源，表明获取列属性
@@ -432,6 +435,7 @@ func findPGColumns(dataSource string, tableName string) []Column {
         SELECT
             a.attnum AS column_number,
             a.attname AS column_name,
+						col_description(a.attrelid, a.attnum) as column_comment,
             --format_type(a.atttypid, a.atttypmod) AS column_type,
             a.attnotnull AS not_null,
 			COALESCE(pg_get_expr(ad.adbin, ad.adrelid), '') AS default_value,

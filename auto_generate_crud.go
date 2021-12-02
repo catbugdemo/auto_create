@@ -24,11 +24,11 @@ type St struct {
 }
 
 //  AutoGenerateCRUD 自动生成结构体名称
-func AutoGenerateCRUD(st St) string {
+func AutoGenerateCRUD(c CRUD) string {
 
-	st.initStruct()
+	c.initStruct()
 
-	crud := st.formatCRUD()
+	crud := c.formatCRUD()
 
 	return crud
 }

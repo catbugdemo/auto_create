@@ -37,3 +37,30 @@ func TestGenerateController(t *testing.T) {
 	fmt.Println(GenerateController(c))
 }
 ```
+
+- 将会自动生成
+```go
+// 获取落地页
+func GetPages(c *gin.Context) {
+	type Req struct {
+	// TODO 请填写请求参数
+	}
+	var req Req
+	if err := c.Bind(&req); err != nil {
+		log.Printf("%+v",errors.WithStack(err))
+		c.JSON(200, gin.H{"code": 1, "msg": "request binding failed", "debug": err.Error()})
+		return
+	}
+
+	db := c.MustGet(DB_CONFIG).(*gorm.DB)
+	data, err := service.GetPages(req, db)
+	if err != nil {
+		log.Printf("%+v",errors.WithStack(err))
+		c.JSON(200, gin.H{"code": 2, "msg": "service operate failed", "debug": err.Error()})
+		return
+	}
+	
+	log.Printf("way:%v ; req:%v ; data:%v ;", "GetPages", req, data)
+	c.JSON(200, gin.H{"code": 0, "msg": "success", "data": data})
+}
+```
