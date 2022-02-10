@@ -2,45 +2,43 @@ package auto
 
 import (
 	"fmt"
+	"github.com/fwhezfwhez/model_convert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
-/*// 生成 Controller 层
+// 生成 Controller 层,包括 swag
 func TestGenerateController(t *testing.T) {
-	c := Control{
-		ControlName: "GetAdgroups", // 输入创建名称
-		Describe:    "获取广告组",       // 输入描述 -- 可不填
-		// 是否需要绑定参数
-		Req: Req{
-			ReqBool: true, // 是否需要手动填写绑定参数，推荐3个以内为true
-			Req:     "",   // 请求名称,如果 ReqBool == true 不填
+	m := Model{
+		Control: Control{
+			ControlName: "GetAdgroups", // 输入创建名称
+			DbConfig:    "c.MustGet(DB_CONFIG).(*gorm.DB)",
+
+			// log
+			LogBind:    "JsonNotifyStatusWithLog(c, CODE_FAIL_I, err.Error(), req, timeNow)",
+			LogService: "JsonNotifyStatusWithLog(c, CODE_FAIL_I, err.Error(), req, timeNow)",
+			LogReturn:  "JsonNotifyRetWithLog(c, CODE_SUCCESS_I, CODE_SUCCESS_S, req, data, timeNow)",
 		},
-		DbConfig: "c.MustGet(DB_CONFIG).(*gorm.DB)",
 
-		ServiceStr:     "",   // 一般不填 service层名称 一般只有 2 个返回 data,err
-		ReturnDataBool: true, // 是否需要返回数据
-
-		LogOrSave: "", // 默认不填
+		Swag: Swag{
+			Security: "x-smb-jwt",
+		},
 	}
-	fmt.Println(GenerateController(c))
-}*/
+	fmt.Println(GenerateController(m))
+}
 
 // 生成底层模板
 func TestModels(t *testing.T) {
 	normal := Normal{
 		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
-		TableName:  "smb_authorize",
+		TableName:  "smb_tencentad_err_log",
 		Driver:     "postgres",
 	}
 
 	generate, err := AutoGenerateModel(&normal)
 	assert.Nil(t, err)
-
 	fmt.Printf(generate)
-
 }
 
 // 自动生成 crud
@@ -64,4 +62,22 @@ func TestCRUD(t *testing.T) {
 	}
 
 	fmt.Printf(AutoGenerateCRUD(&st))
+}
+
+func TestModelConvert(t *testing.T) {
+	var sql = `
+create table smb_tencentad_local_log(
+  id serial primary key,
+  create_time timestamp with time zone DEFAULT now(),
+	create_date date DEFAULT 'now'::text::date,
+  
+  access_token varchar not null default '', -- access_token
+  account_id int not null default 0, -- 腾讯 account_id 
+  req jsonb, -- 请求参数
+  resp jsonb -- 返回值
+);
+create index on smb_tencentad_local_log(account_id);
+`
+
+	fmt.Println(model_convert.GenerateNote(sql))
 }

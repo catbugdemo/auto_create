@@ -1,7 +1,9 @@
 package auto
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"strings"
 
 	"github.com/catbugdemo/errors"
@@ -14,6 +16,7 @@ import (
 type Normal struct {
 	DataSource string                 `json:"data_source"`
 	TableName  string                 `json:"table_name"`
+	Package    string                 `json:"package"`
 	Driver     string                 `json:"driver"`
 	Info       map[string]interface{} `json:"info"`
 }
@@ -39,6 +42,9 @@ func (n *Normal) init() error {
 	if n.DataSource == "" || n.TableName == "" {
 		return errors.New("DataSource or TableName is nill")
 	}
+	if n.Package == "" {
+		n.Package = "models"
+	}
 	n.initInfo()
 	return nil
 }
@@ -58,278 +64,509 @@ func (n *Normal) initInfo() {
 func (n *Normal) formatJSON() (string, error) {
 	columns := FindColumns(n.Driver, n.DataSource, n.TableName)
 
-	var str = `
+	/*	var str = `
 
-// without 2-cache
+		// without 2-cache
+		import (
+			"encoding/json"
+			"fmt"
+			"math/rand"
+			"time"
+
+			"gorm.io/gorm"
+
+			"github.com/catbugdemo/errors"
+
+			"github.com/gomodule/redigo/redis"
+		)
+
+		type ${struct_name} struct {
+			${type_struct}
+		}
+
+		func (o ${struct_name}) TableName() string {
+			return "${table_name}"
+		}
+
+		var ${struct_name}RedisKeyFormat = ""
+
+		func (o ${struct_name}) RedisKey() string {
+			// TODO set redis key account to index
+			return fmt.Sprintf(${struct_name}RedisKeyFormat)
+		}
+
+		var Array${struct_name}RedisKeyFormat = ""
+
+		func (o ${struct_name}) ArrayRedisKey() string {
+			// TODO set its redis key account to index
+			return fmt.Sprintf(Array${struct_name}RedisKeyFormat)
+		}
+
+		func (o ${struct_name}) RedisSecondDuration() int {
+			// TODO set redis duration default 1 - 7 days , return -1 means not time limit
+			return (rand.Intn(7-1) + 1) * 60 * 60 * 24
+		}
+
+		func (o *${struct_name}) GetFromRedis(conn redis.Conn) error {
+			if o.RedisKey() == "" {
+				return errors.New("not set redis key")
+			}
+
+			buf, err := redis.Bytes(conn.Do("GET", o.RedisKey()))
+
+			if err != nil {
+				if err == redis.ErrNil {
+					return redis.ErrNil
+				}
+				return errors.WithStack(err)
+			}
+
+			// Prevent cache penetration
+			if string(buf) == "DISABLE" {
+				return errors.New("not found data in redis nor db")
+			}
+
+			if err = json.Unmarshal(buf, &o); err != nil {
+				return errors.WithStack(err)
+			}
+
+			return nil
+		}
+
+		func (o ${struct_name}) ArrayGetFromRedis(conn redis.Conn) ([]${struct_name}, error) {
+			if o.ArrayRedisKey() == "" {
+				return nil, errors.New("not set redis key")
+			}
+
+			buf, err := redis.Bytes(conn.Do("GET", o.RedisKey()))
+
+			if err != nil {
+				if err == redis.ErrNil {
+					return nil, redis.ErrNil
+				}
+				return nil, errors.WithStack(err)
+			}
+
+			// Prevent cache penetration
+			if string(buf) == "DISABLE" {
+				return nil, fmt.Errorf("not found data in redis nor db")
+			}
+
+			list := make([]${struct_name}, 0)
+			if err = json.Unmarshal(buf, &list); err != nil {
+				return nil, errors.WithStack(err)
+			}
+
+			return list, nil
+		}
+
+		// SyncToRedis sync redis
+		func (o ${struct_name}) SyncToRedis(conn redis.Conn) error {
+			if o.RedisKey() == "" {
+				return errors.New("not set redis key")
+			}
+
+			buf, err := json.Marshal(o)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			if o.RedisSecondDuration() == -1 {
+				if _, err := conn.Do("SET", o.RedisKey(), buf); err != nil {
+					return errors.WithStack(err)
+				}
+			} else {
+				if _, err := conn.Do("SETEX", o.RedisKey(), o.RedisSecondDuration(), buf); err != nil {
+					return errors.WithStack(err)
+				}
+			}
+			return nil
+		}
+
+		// MustGet query single data
+		func (o *${struct_name}) MustGet(db *gorm.DB, conn redis.Conn) error {
+
+			err := o.GetFromRedis(conn)
+
+			if err != nil && err.Error() == "not found data in redis nor db" {
+				return errors.WithStack(err)
+			}
+
+			if err == redis.ErrNil {
+				// get from db
+				var count int64
+				if err2 := db.Count(&count).Error; err2 != nil {
+					return errors.WithStack(err2)
+				}
+				// Prevent cache penetration
+				if count == 0 {
+					if o.RedisSecondDuration() == -1 {
+						_, _ = conn.Do("SETNX", o.RedisKey(), "DISABLE")
+					} else {
+						_, _ = conn.Do("SET", o.RedisKey(), "DISABLE", "EX", o.RedisSecondDuration(), "NX")
+					}
+					return errors.New("not found data in redis nor db")
+				}
+
+				if err3 := db.First(&o).Error; err3 != nil {
+					return errors.WithStack(err3)
+				}
+
+				if err4 := o.SyncToRedis(conn); err != nil {
+					return errors.WithStack(err4)
+				}
+				return nil
+			}
+
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			return nil
+		}
+
+		// ArraySyncToRedis
+		func (o ${struct_name}) ArraySyncToRedis(list []${struct_name}, conn redis.Conn) error {
+			if o.ArrayRedisKey() == "" {
+				return errors.New("not set redis key")
+			}
+
+			buf, err := json.Marshal(list)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			if o.RedisSecondDuration() == -1 {
+				if _, err := conn.Do("SET", o.RedisKey(), buf); err != nil {
+					return errors.WithStack(err)
+				}
+			} else {
+				if _, err := conn.Do("SETEX", o.RedisKey(), o.RedisSecondDuration(), buf); err != nil {
+					return errors.WithStack(err)
+				}
+			}
+			return nil
+		}
+
+		// ArrayMustGet query list data
+		func (o ${struct_name}) ArrayMustGet(db *gorm.DB, conn redis.Conn) ([]${struct_name}, error) {
+
+
+			list, err := o.ArrayGetFromRedis(conn)
+			if err != nil && err.Error() == "not found data in redis nor db" {
+				// redis value is DISABLE
+				return nil, errors.WithStack(err)
+			}
+
+			if err == redis.ErrNil {
+				// get from db
+				var count int64
+				if err2 := db.Count(&count).Error; err2 != nil {
+					return nil, errors.WithStack(err2)
+				}
+
+				// Prevent cache penetration
+				if count == 0 {
+					if o.RedisSecondDuration() == -1 {
+						_, _ = conn.Do("SETNX", o.RedisKey(), "DISABLE")
+					} else {
+						_, _ = conn.Do("SET", o.RedisKey(), "DISABLE", "EX", o.RedisSecondDuration(), "NX")
+					}
+					return nil, errors.New("not found data in redis nor db")
+				}
+
+				if err3 := db.Find(&list).Error; err3 != nil {
+					return nil, errors.WithStack(err3)
+				}
+
+				if err4 := o.ArraySyncToRedis(list, conn); err4 != nil {
+					return nil, errors.WithStack(err)
+				}
+
+				return list, nil
+			}
+
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+
+			return list, nil
+		}
+
+		// DeleteFromRedis delete redis
+		func (o ${struct_name}) DeleteFromRedis(conn redis.Conn) error {
+			if o.RedisKey() != "" {
+				if _, err := conn.Do("DEL", o.RedisKey()); err != nil {
+					return errors.WithStack(err)
+				}
+			}
+
+			if o.ArrayRedisKey() != "" {
+				if _, err := conn.Do("DEL", o.RedisKey()); err != nil {
+					return errors.WithStack(err)
+				}
+			}
+			return nil
+		}
+
+		// ArrayDeleteFromRedis  delete list redis
+		func (o ${struct_name}) ArrayDeleteFromRedis(conn redis.Conn) error {
+			return o.DeleteFromRedis(conn)
+		}
+
+
+		`
+	*/
+	var str2 = `
+package {{.package}}
+
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 	"math/rand"
 	"time"
-
-	"gorm.io/gorm"
-
-	"github.com/catbugdemo/errors"
-
-	"github.com/gomodule/redigo/redis"
 )
 
-/*
-	need pkg
-		- "gorm.io/gorm"
-		- "github.com/catbugdemo/errors" or "github.com/pkg/errors"
-		- "github.com/gomodule/redigo/redis"
-*/
-
-type ${struct_name} struct {
+type {{.struct_name}} struct {
 	${type_struct}
 }
 
-func (o ${struct_name}) TableName() string {
-	return "${table_name}"
+// RedisKey
+func (o *{{.struct_name}}) RedisKey() string {
+	// TODO set redis key
+	return fmt.Sprintf()
 }
 
-var ${struct_name}RedisKeyFormat = ""
-
-func (o ${struct_name}) RedisKey() string {
-	// TODO set redis key account to index
-	return fmt.Sprintf(${struct_name}RedisKeyFormat)
+func (o *{{.struct_name}}) ArrayRedisKey() string {
+	// TODO set array redis key
+	return fmt.Sprintf()
 }
 
-var Array${struct_name}RedisKeyFormat = ""
-
-func (o ${struct_name}) ArrayRedisKey() string {
-	// TODO set its redis key account to index
-	return fmt.Sprintf(Array${struct_name}RedisKeyFormat)
+// RedisDuration
+func (o *{{.struct_name}}) RedisDuration() time.Duration {
+	// TODO set redis duration , default 30 ~ 60 minutes
+	return time.Duration((rand.Intn(60-30) + 30)) * time.Minute
 }
 
-func (o ${struct_name}) RedisSecondDuration() int {
-	// TODO set redis duration default 1 - 7 days , return -1 means not time limit
-	return (rand.Intn(7-1) + 1) * 60 * 60 * 24
-}
-
-func (o *${struct_name}) GetFromRedis(conn redis.Conn) error {
+// SyncToRedis
+func (o *{{.struct_name}}) SyncToRedis(conn *redis.Conn) error {
 	if o.RedisKey() == "" {
 		return errors.New("not set redis key")
 	}
-
-	buf, err := redis.Bytes(conn.Do("GET", o.RedisKey()))
-
-	if err != nil {
-		if err == redis.ErrNil {
-			return redis.ErrNil
-		}
-		return errors.WithStack(err)
-	}
-
-	// Prevent cache penetration
-	if string(buf) == "DISABLE" {
-		return errors.New("not found data in redis nor db")
-	}
-
-	if err = json.Unmarshal(buf, &o); err != nil {
-		return errors.WithStack(err)
-	}
-
-	return nil
-}
-
-func (o ${struct_name}) ArrayGetFromRedis(conn redis.Conn) ([]${struct_name}, error) {
-	if o.ArrayRedisKey() == "" {
-		return nil, errors.New("not set redis key")
-	}
-
-	buf, err := redis.Bytes(conn.Do("GET", o.RedisKey()))
-
-	if err != nil {
-		if err == redis.ErrNil {
-			return nil, redis.ErrNil
-		}
-		return nil, errors.WithStack(err)
-	}
-
-	// Prevent cache penetration
-	if string(buf) == "DISABLE" {
-		return nil, fmt.Errorf("not found data in redis nor db")
-	}
-
-	list := make([]${struct_name}, 0)
-	if err = json.Unmarshal(buf, &list); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return list, nil
-}
-
-// SyncToRedis sync redis
-func (o ${struct_name}) SyncToRedis(conn redis.Conn) error {
-	if o.RedisKey() == "" {
-		return errors.New("not set redis key")
-	}
-
 	buf, err := json.Marshal(o)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	if err = conn.SetEX(context.Background(), o.RedisKey(), string(buf), o.RedisDuration()).Err(); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
 
-	if o.RedisSecondDuration() == -1 {
-		if _, err := conn.Do("SET", o.RedisKey(), buf); err != nil {
+// GetFromRedis
+func (o *{{.struct_name}}) GetFromRedis(conn *redis.Conn) error {
+	if o.RedisKey() == "" {
+		return errors.New("not set redis key")
+	}
+	buf, err := conn.Get(context.Background(), o.RedisKey()).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return redis.Nil
+		}
+		return errors.WithStack(err)
+	}
+	if string(buf) == "DISABLE" {
+		return errors.New("not found data in redis nor db")
+	}
+
+	if err = json.Unmarshal(buf, o); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (o *{{.struct_name}}) DeleteFromRedis(conn *redis.Conn) error {
+	if o.RedisKey() != "" {
+		if err := conn.Del(context.Background(), o.RedisKey()).Err(); err != nil {
 			return errors.WithStack(err)
 		}
-	} else {
-		if _, err := conn.Do("SETEX", o.RedisKey(), o.RedisSecondDuration(), buf); err != nil {
+	}
+	if o.ArrayRedisKey() != "" {
+		if err := conn.Del(context.Background(), o.ArrayRedisKey()).Err(); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 	return nil
 }
 
-// MustGet query single data
-func (o *${struct_name}) MustGet(db *gorm.DB, conn redis.Conn) error {
-
+// MustGet
+func (o *{{.struct_name}}) MustGet(engine *gorm.DB, conn *redis.Conn) error {
 	err := o.GetFromRedis(conn)
-
-	if err != nil && err.Error() == "not found data in redis nor db" {
-		return errors.WithStack(err)
-	}
-
-	if err == redis.ErrNil {
-		// get from db
-		var count int64
-		if err2 := db.Count(&count).Error; err2 != nil {
-			return errors.WithStack(err2)
-		}
-		// Prevent cache penetration
-		if count == 0 {
-			if o.RedisSecondDuration() == -1 {
-				_, _ = conn.Do("SETNX", o.RedisKey(), "DISABLE")
-			} else {
-				_, _ = conn.Do("SET", o.RedisKey(), "DISABLE", "EX", o.RedisSecondDuration(), "NX")
-			}
-			return errors.New("not found data in redis nor db")
-		}
-
-		if err3 := db.First(&o).Error; err3 != nil {
-			return errors.WithStack(err3)
-		}
-
-		if err4 := o.SyncToRedis(conn); err != nil {
-			return errors.WithStack(err4)
-		}
+	if err == nil {
 		return nil
 	}
 
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return errors.WithStack(err)
 	}
+	// not found in redis
+	var count int64
+	if err = engine.Count(&count).Error; err != nil {
+		return errors.WithStack(err)
+	}
+	// prevent cache penetration
+	if count == 0 {
+		if err = conn.SetNX(context.Background(), o.RedisKey(), "DISABLE", o.RedisDuration()).Err(); err != nil {
+			return errors.WithStack(err)
+		}
+		return errors.New("not found data in redis nor db")
+	}
 
+	var mutex = o.RedisKey() + "_MUTEX"
+	if err = conn.Get(context.Background(), mutex).Err(); err != nil {
+		if err != redis.Nil {
+			return errors.WithStack(err)
+		}
+		// set redis mutex and get from db
+		if err = conn.SetNX(context.Background(), mutex, 1, 5*time.Second).Err(); err != nil {
+			return errors.WithStack(err)
+		}
+		if err = engine.First(&o).Error; err != nil {
+			return errors.WithStack(err)
+		}
+		if err = o.SyncToRedis(conn); err != nil {
+			return errors.WithStack(err)
+		}
+		if err = conn.Del(context.Background(), mutex).Err(); err != nil {
+			return errors.WithStack(err)
+		}
+	} else {
+		// found lock , waiting unlock
+		time.Sleep(50 * time.Millisecond)
+		if err = o.MustGet(engine, conn); err != nil {
+			return errors.WithStack(err)
+		}
+	}
 	return nil
 }
 
 // ArraySyncToRedis
-func (o ${struct_name}) ArraySyncToRedis(list []${struct_name}, conn redis.Conn) error {
+func (o *{{.struct_name}}) ArraySyncToRedis(list []{{.struct_name}}, conn *redis.Conn) error {
 	if o.ArrayRedisKey() == "" {
 		return errors.New("not set redis key")
 	}
-
 	buf, err := json.Marshal(list)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-
-	if o.RedisSecondDuration() == -1 {
-		if _, err := conn.Do("SET", o.RedisKey(), buf); err != nil {
-			return errors.WithStack(err)
-		}
-	} else {
-		if _, err := conn.Do("SETEX", o.RedisKey(), o.RedisSecondDuration(), buf); err != nil {
-			return errors.WithStack(err)
-		}
+	if err = conn.SetEX(context.Background(), o.ArrayRedisKey(), string(buf), o.RedisDuration()).Err(); err != nil {
+		return errors.WithStack(err)
 	}
 	return nil
 }
 
-// ArrayMustGet query list data
-func (o ${struct_name}) ArrayMustGet(db *gorm.DB, conn redis.Conn) ([]${struct_name}, error) {
-
-
-	list, err := o.ArrayGetFromRedis(conn)
-	if err != nil && err.Error() == "not found data in redis nor db" {
-		// redis value is DISABLE
-		return nil, errors.WithStack(err)
+// ArrayGetFromRedis
+func (o *{{.struct_name}}) ArrayGetFromRedis(conn *redis.Conn) ([]{{.struct_name}}, error) {
+	if o.RedisKey() == "" {
+		return nil, errors.New("not set redis key")
 	}
-
-	if err == redis.ErrNil {
-		// get from db
-		var count int64
-		if err2 := db.Count(&count).Error; err2 != nil {
-			return nil, errors.WithStack(err2)
-		}
-
-		// Prevent cache penetration
-		if count == 0 {
-			if o.RedisSecondDuration() == -1 {
-				_, _ = conn.Do("SETNX", o.RedisKey(), "DISABLE")
-			} else {
-				_, _ = conn.Do("SET", o.RedisKey(), "DISABLE", "EX", o.RedisSecondDuration(), "NX")
-			}
-			return nil, errors.New("not found data in redis nor db")
-		}
-
-		if err3 := db.Find(&list).Error; err3 != nil {
-			return nil, errors.WithStack(err3)
-		}
-
-		if err4 := o.ArraySyncToRedis(list, conn); err4 != nil {
-			return nil, errors.WithStack(err)
-		}
-
-		return list, nil
-	}
-
+	buf, err := conn.Get(context.Background(), o.ArrayRedisKey()).Bytes()
 	if err != nil {
+		if err == redis.Nil {
+			return nil, redis.Nil
+		}
 		return nil, errors.WithStack(err)
 	}
-
+	if string(buf) == "DISABLE" {
+		return nil, errors.New("not found data in redis nor db")
+	}
+	var list []{{.struct_name}}
+	if err = json.Unmarshal(buf, &list); err != nil {
+		return nil, errors.WithStack(err)
+	}
 	return list, nil
 }
 
-// DeleteFromRedis delete redis
-func (o ${struct_name}) DeleteFromRedis(conn redis.Conn) error {
-	if o.RedisKey() != "" {
-		if _, err := conn.Do("DEL", o.RedisKey()); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-
-	if o.ArrayRedisKey() != "" {
-		if _, err := conn.Do("DEL", o.RedisKey()); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-	return nil
-}
-
-// ArrayDeleteFromRedis  delete list redis
-func (o ${struct_name}) ArrayDeleteFromRedis(conn redis.Conn) error {
+// ArrayDeleteFromRedis
+func (o *{{.struct_name}}) ArrayDeleteFromRedis(conn *redis.Conn) error {
 	return o.DeleteFromRedis(conn)
 }
 
+// ArrayMustGet
+func (o *{{.struct_name}}) ArrayMustGet(engine *gorm.DB, conn *redis.Conn) ([]{{.struct_name}}, error) {
+	list, err := o.ArrayGetFromRedis(conn)
+	if err == nil {
+		return list, nil
+	}
+	if err != nil && err != redis.Nil {
+		return nil, errors.WithStack(err)
+	}
 
+	// not found in redis
+	var count int64
+	if err = engine.Count(&count).Error; err != nil {
+		return nil, errors.WithStack(err)
+	}
+	// prevent cache penetration
+	if count == 0 {
+		if err = conn.SetNX(context.Background(), o.ArrayRedisKey(), "DISABLE", o.RedisDuration()).Err(); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return nil, errors.New("not found data in redis nor db")
+	}
+
+	var mutex = o.ArrayRedisKey() + "_MUTEX"
+	if err = conn.Get(context.Background(), mutex).Err(); err != nil {
+		if err != redis.Nil {
+			return nil, errors.WithStack(err)
+		}
+		// set redis mutex and get from db
+		if err = conn.SetNX(context.Background(), mutex, 1, 5*time.Second).Err(); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if err = engine.Find(&list).Error; err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if err = o.ArraySyncToRedis(list, conn); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if err = conn.Del(context.Background(), mutex).Err(); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else {
+		// found lock , waiting unlock
+		time.Sleep(50 * time.Millisecond)
+		list, err = o.ArrayMustGet(engine, conn)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+	}
+	return list, nil
+}
 `
-	str = strings.ReplaceAll(str, "${type_struct}", getTypeStruct(columns))
-	str = strings.ReplaceAll(str, "${struct_name}", n.Info["struct_name"].(string))
-	str = strings.ReplaceAll(str, "${table_name}", n.TableName)
-	return str, nil
+	str2 = strings.ReplaceAll(str2, "${type_struct}", getTypeStruct(columns))
+	tt := template.Must(template.New("model").Parse(str2))
+	vals := map[string]string{
+		"package":     n.Package,
+		"struct_name": n.Info["struct_name"].(string),
+		//"type_struct": getTypeStruct(columns),
+	}
+	var buf bytes.Buffer
+	if err := tt.Execute(&buf, vals); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 func getTypeStruct(columns []Column) string {
 	var tmp string
 	for _, column := range columns {
-		/*				tmp += fmt.Sprintf("    %s  %s    `gorm:\"column:%s;default:\" json:\"%s\" form:\"%s\"` // %s \n",
-						underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName,column.ColumnComment)*/
-		tmp += fmt.Sprintf("    %s  %s    `db:\"%s\" json:\"%s\" form:\"%s\"` // %s \n",
-			underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName, column.ColumnComment)
+		tmp += fmt.Sprintf("    %s  %s    `gorm:\"column:%s;default:\" json:\"%s\" form:\"%s\" db:\"%s\"` // %s \n",
+			underLineToHump(column.ColumnName), typeConvert(column.ColumnType), column.ColumnName, column.ColumnName, column.ColumnName, column.ColumnName, column.ColumnComment)
 	}
 	return tmp[:len(tmp)-1]
 }
@@ -435,7 +672,7 @@ func findPGColumns(dataSource string, tableName string) []Column {
         SELECT
             a.attnum AS column_number,
             a.attname AS column_name,
-						col_description(a.attrelid, a.attnum) as column_comment,
+			col_description(a.attrelid, a.attnum) as column_comment,
             --format_type(a.atttypid, a.atttypmod) AS column_type,
             a.attnotnull AS not_null,
 			COALESCE(pg_get_expr(ad.adbin, ad.adrelid), '') AS default_value,

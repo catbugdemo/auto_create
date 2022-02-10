@@ -11,7 +11,17 @@
 
 ```go
 
+func TestModels(t *testing.T) {
+	normal := Normal{
+		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "127.0.0.1", "5432", "postgres", "mydb", "disable", "123456"),
+		TableName:  "tmp_user",
+		Driver:     "postgres",
+	}
 
+	generate, err := AutoGenerateModel(&normal)
+	assert.Nil(t, err)
+	fmt.Printf(generate)
+}
 ```
 
 ## 自动生成 contrller 层
