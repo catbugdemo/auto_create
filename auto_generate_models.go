@@ -446,7 +446,19 @@ func (o *{{.struct_name}}) MustGet(engine *gorm.DB, conn *redis.Conn) error {
 		}
 	} else {
 		// found lock , waiting unlock
-		time.Sleep(50 * time.Millisecond)
+		var index int
+		for {
+			if index > 10 {
+				return errors.New(mutex + " lock error")
+			}
+			if err2 := conn.Get(context.Background(), mutex).Err(); err2 != nil {
+				break
+			} else {
+				time.Sleep(30 * time.Millisecond)
+				index++
+				continue
+			}
+		}
 		if err = o.MustGet(engine, conn); err != nil {
 			return errors.WithStack(err)
 		}
@@ -539,7 +551,19 @@ func (o *{{.struct_name}}) ArrayMustGet(engine *gorm.DB, conn *redis.Conn) ([]{{
 		}
 	} else {
 		// found lock , waiting unlock
-		time.Sleep(50 * time.Millisecond)
+		var index int
+		for {
+			if index > 10 {
+				return nil, errors.New(mutex + " lock error")
+			}
+			if err2 := conn.Get(context.Background(), mutex).Err(); err2 != nil {
+				break
+			} else {
+				time.Sleep(30 * time.Millisecond)
+				index++
+				continue
+			}
+		}
 		list, err = o.ArrayMustGet(engine, conn)
 		if err != nil {
 			return nil, errors.WithStack(err)
