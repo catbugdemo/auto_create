@@ -9,7 +9,7 @@ import (
 type WithoutRedis struct {
 	Stru interface{}            `json:"stru"` // 结构体
 	Info map[string]interface{} `json:"info"` // 重要层级
-	//  "controller":"handler" , "service":"service" , "model":"models"
+	//  "controller":"handler" , "service":"service" , "model":"model"
 
 	ToMany ToMany
 
@@ -590,7 +590,7 @@ func (o WithoutRedis) printAddConnect() string {
 	
 	connect := make([]${model}.${connect_table_name}, 0, len(req.${be_connect_table_name}Ids))
 	for _, id := range req.${be_connect_table_name}Ids {
-		connect = append(connect, models.${connect_table_name}{
+		connect = append(connect, model.${connect_table_name}{
 			${fix}
 			${name}Id: param.Id,     
 			${be_connect_table_name}Id:   id,          
@@ -714,14 +714,14 @@ func Update${connect_table_name}(req ${req_name}, tx *gorm.DB) error {
 	if len(req.${be_connect})
 
 
-	if err := tx.Model(${models}.${connect_table_name}{}).Where("${where}",${param}).Delete(&models.YtfAdvIndustryPeople{}).Error; err != nil {
+	if err := tx.Model(${model}.${connect_table_name}{}).Where("${where}",${param}).Delete(&model.YtfAdvIndustryPeople{}).Error; err != nil {
 		return errors.WithStack(err)
 	}
 
 	// 处理关联数据
-	connect := make([]${models}.${connect_table_name}, 0, len(req.${connect_table_name}Ids))
+	connect := make([]${model}.${connect_table_name}, 0, len(req.${connect_table_name}Ids))
 	for _, id := range req.YtfAdvPeopleTargetIds {
-		connect = append(connect, models.YtfAdvIndustryPeople{
+		connect = append(connect, model.YtfAdvIndustryPeople{
 			${fix}
 			${name}Id: param.Id,     
 			${be_connect_table_name}Id:   id,  
@@ -729,7 +729,7 @@ func Update${connect_table_name}(req ${req_name}, tx *gorm.DB) error {
 	}
 
 	// 添加关联表
-	if err := tx.Model(&models.YtfAdvIndustryPeople{}).Create(&connect).Error; err != nil {
+	if err := tx.Model(&model.YtfAdvIndustryPeople{}).Create(&connect).Error; err != nil {
 		return errors.WithStack(err)
 	}
 	return nil 

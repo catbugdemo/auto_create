@@ -8,6 +8,7 @@ import (
 type CRUD interface {
 	initStruct()
 	formatCRUD() string
+	formatSqlxCRUD() string
 }
 
 type St struct {

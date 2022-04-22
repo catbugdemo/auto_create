@@ -32,11 +32,23 @@ func TestGenerateController(t *testing.T) {
 func TestModels(t *testing.T) {
 	normal := Normal{
 		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
-		TableName:  "smb_tencentad_err_log",
+		TableName:  "smb_wechat_pay_return",
 		Driver:     "postgres",
 	}
 
 	generate, err := AutoGenerateModel(&normal)
+	assert.Nil(t, err)
+	fmt.Printf(generate)
+}
+
+func TestSqlx(t *testing.T) {
+	normal := Normal{
+		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
+		TableName:  "smb_wechat_pay_return",
+		Driver:     "postgres",
+	}
+
+	generate, err := AutoGenerateSqlx(&normal)
 	assert.Nil(t, err)
 	fmt.Printf(generate)
 }
@@ -56,7 +68,7 @@ func TestCRUD(t *testing.T) {
 	st := St{
 		Stru:        YtfAdvAccountInfo{},
 		DbConfig:    `c.MustGet(DB_CONFIG).(*gorm.DB)`,
-		ModelsName:  "models.YtfAdvAccountInfo",
+		ModelsName:  "model.YtfAdvAccountInfo",
 		RedisConfig: `c.MustGet(REDIS_TOKEN).(*redis.Pool).Get()`,
 		Handlers:    "handlers",
 	}
@@ -64,19 +76,34 @@ func TestCRUD(t *testing.T) {
 	fmt.Printf(AutoGenerateCRUD(&st))
 }
 
+func TestSqlxCrud(t *testing.T) {
+	type Str struct {
+	}
+	st := St{
+		Stru:     Str{},
+		DbConfig: `c.MustGet(DB_CONFIG).(*gorm.DB)`,
+		Info: map[string]interface{}{
+			"bind_json":    "",
+			"service_json": "",
+			"success_json": "",
+		},
+	}
+	fmt.Print(AutoGenerateSqlxControl(&st))
+}
+
 func TestModelConvert(t *testing.T) {
 	var sql = `
-create table smb_tencentad_local_log(
-  id serial primary key,
+create table smb_province_code(
+  id serial primary key not null, 
   create_time timestamp with time zone DEFAULT now(),
-	create_date date DEFAULT 'now'::text::date,
+	create_date date NULL DEFAULT 'now'::text::date,
   
-  access_token varchar not null default '', -- access_token
-  account_id int not null default 0, -- 腾讯 account_id 
-  req jsonb, -- 请求参数
-  resp jsonb -- 返回值
+  province varchar not null default '', -- 省
+  city varchar not null default '', -- 市
+  area varchar not null default ''-- 区
+  code int not null default 0,  -- 编码
 );
-create index on smb_tencentad_local_log(account_id);
+create index on smb_province_code(province,city,area);
 `
 
 	fmt.Println(model_convert.GenerateNote(sql))

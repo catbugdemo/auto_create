@@ -24,6 +24,7 @@ type Normal struct {
 type Way interface {
 	init() error
 	formatJSON() (string, error)
+	formatJSONSQL() (string, error)
 }
 
 func AutoGenerateModel(way Way) (string, error) {
@@ -43,7 +44,7 @@ func (n *Normal) init() error {
 		return errors.New("DataSource or TableName is nill")
 	}
 	if n.Package == "" {
-		n.Package = "models"
+		n.Package = "model"
 	}
 	n.initInfo()
 	return nil
