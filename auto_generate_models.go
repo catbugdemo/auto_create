@@ -3,6 +3,7 @@ package auto
 import (
 	"bytes"
 	"fmt"
+	"gorm.io/driver/mysql"
 	"html/template"
 	"strings"
 
@@ -44,7 +45,7 @@ func (n *Normal) init() error {
 		return errors.New("DataSource or TableName is nill")
 	}
 	if n.Package == "" {
-		n.Package = "model"
+		n.Package = "models"
 	}
 	n.initInfo()
 	return nil
@@ -574,7 +575,7 @@ func (o *{{.struct_name}}) ArrayMustGet(engine *gorm.DB, conn *redis.Conn) ([]{{
 }
 `
 	str2 = strings.ReplaceAll(str2, "${type_struct}", getTypeStruct(columns))
-	tt := template.Must(template.New("model").Parse(str2))
+	tt := template.Must(template.New("models").Parse(str2))
 	vals := map[string]string{
 		"package":     n.Package,
 		"struct_name": n.Info["struct_name"].(string),
@@ -635,6 +636,9 @@ func typeConvert(s string) string {
 		if strings.HasPrefix(s, "int") {
 			return "int"
 		}
+		if strings.HasPrefix(s, "bigint") {
+			return "int"
+		}
 		if strings.HasPrefix(s, "varchar") {
 			return "string"
 		}
@@ -653,6 +657,15 @@ func typeConvert(s string) string {
 func in(s string, arr []string) bool {
 	for _, v := range arr {
 		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+func contaion(s string, arr ...string) bool {
+	for _, v := range arr {
+		if strings.Contains(v, s) {
 			return true
 		}
 	}
@@ -748,9 +761,9 @@ func findPGColumns(dataSource string, tableName string) []Column {
 }
 func findMysqlColumns(dataSource string, tableName string) []Column {
 	var FindColumnsSql = `
-       SELECT column_name as column_name, column_type as column_type  FROM information_schema.columns WHERE table_name= ?
+       SELECT column_name as column_name, column_type as column_type,column_comment  FROM information_schema.columns WHERE table_name= ?
 	`
-	db, err := gorm.Open(postgres.Open(dataSource), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dataSource), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}

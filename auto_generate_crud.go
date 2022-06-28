@@ -40,6 +40,9 @@ func (s *St) initStruct() {
 	if s.LogOrSave == "" {
 		s.LogOrSave = `log.Printf("%+v",errors.WithStack(err))`
 	}
+	if _, ok := s.Info["tag"]; !ok {
+		s.Info["tag"] = "测试"
+	}
 	s.parseValue()
 
 }

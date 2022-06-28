@@ -9,7 +9,7 @@ import (
 type WithoutRedis struct {
 	Stru interface{}            `json:"stru"` // 结构体
 	Info map[string]interface{} `json:"info"` // 重要层级
-	//  "controller":"handler" , "service":"service" , "model":"model"
+	//  "controller":"handler" , "service":"service" , "models":"models"
 
 	ToMany ToMany
 
@@ -71,7 +71,7 @@ func (o *WithoutRedis) parseName() {
 	nameList = append(nameList, name[index:])
 
 	o.Info["name_list"] = nameList
-	o.Info["model_name"] = o.Info["model"].(string) + "." + name
+	o.Info["model_name"] = o.Info["models"].(string) + "." + name
 }
 
 // 解析获取 结构体中的数据的名称
@@ -493,7 +493,7 @@ func (o WithoutRedis) printTableList() string {
 	if (o.ToMany == ToMany{}) {
 		return ""
 	}
-	var str = `${be_connect_table_name}s []${model}.${be_connect_table_name}`
+	var str = `${be_connect_table_name}s []${models}.${be_connect_table_name}`
 	return str
 }
 
@@ -521,7 +521,7 @@ func (o WithoutRedis) printDeleteConnect() string {
 	}
 	var str = `
 	// delete connect table
-	if err := tx.Model(${model}.${connect_table_name}{}).Where(${where}).Delete(&${model}.${connect_table_name}{}).Error; err != nil {
+	if err := tx.Model(${models}.${connect_table_name}{}).Where(${where}).Delete(&${models}.${connect_table_name}{}).Error; err != nil {
 		tx.Rollback()
 		return errors.WithStack(err)
 	}
@@ -573,7 +573,7 @@ func (o WithoutRedis) printGetData() string {
 }
 
 // ${be_connect_table_name}
-// ${model}
+// ${models}
 // ${connect_table_name}
 // ${fix} 相同参数
 
@@ -588,23 +588,23 @@ func (o WithoutRedis) printAddConnect() string {
 		return nil
 	}
 	
-	connect := make([]${model}.${connect_table_name}, 0, len(req.${be_connect_table_name}Ids))
+	connect := make([]${models}.${connect_table_name}, 0, len(req.${be_connect_table_name}Ids))
 	for _, id := range req.${be_connect_table_name}Ids {
-		connect = append(connect, model.${connect_table_name}{
+		connect = append(connect, models.${connect_table_name}{
 			${fix}
 			${name}Id: param.Id,     
 			${be_connect_table_name}Id:   id,          
 		})
 	}
 
-	if err := tx.Model(&${model}.${connect_table_name}{}).Create(&connect).Error; err != nil {
+	if err := tx.Model(&${models}.${connect_table_name}{}).Create(&connect).Error; err != nil {
 		return errors.WithStack(err)
 	}
 `
 
 	str = strings.ReplaceAll(str, "${be_connect_table_name}", o.Info["be_connect_table_name"].(string))
 	str = strings.ReplaceAll(str, "${connect_table_name}", o.Info["connect_table_name"].(string))
-	str = strings.ReplaceAll(str, "${model}", o.Info["model"].(string))
+	str = strings.ReplaceAll(str, "${models}", o.Info["models"].(string))
 	str = strings.ReplaceAll(str, "${fix}", o.dealFix())
 	return str
 }
@@ -624,7 +624,7 @@ func (o WithoutRedis) printGetConnect() string {
 	}
 
 	var str = `
-func GetList${be_connect_table_name}ById(param ${model_name}, db *gorm.DB) ([]${model}.${be_connect_table_name}, error) {
+func GetList${be_connect_table_name}ById(param ${model_name}, db *gorm.DB) ([]${models}.${be_connect_table_name}, error) {
 	// connect table
 	type Connect struct {
 		${be_connect_table_name}Id []int // TODO json 
@@ -632,7 +632,7 @@ func GetList${be_connect_table_name}ById(param ${model_name}, db *gorm.DB) ([]${
 	var connect Connect 
 
 	// todo
-	if err := db.Model(&${model}.${connect_table_name}{}).Select("${l_be_name}").Where("${where}",${param}).Find(&connect.${be_connect_table_name}).Error;err!=nil{
+	if err := db.Model(&${models}.${connect_table_name}{}).Select("${l_be_name}").Where("${where}",${param}).Find(&connect.${be_connect_table_name}).Error;err!=nil{
 		return nil, errors.WithStack(err)
 	}
 
@@ -641,8 +641,8 @@ func GetList${be_connect_table_name}ById(param ${model_name}, db *gorm.DB) ([]${
 	}
 
 	// select be connect table
-	list := make([]${model}.${be_connect_table_name},0,len(connect.${be_connect_table_name}Id))
-	if err := db.Model(&${model}.${be_connect_table_name}{}).Where("id in (?)", connect.${be_connect_table_name}Id).Find(&list).Error; err != nil {
+	list := make([]${models}.${be_connect_table_name},0,len(connect.${be_connect_table_name}Id))
+	if err := db.Model(&${models}.${be_connect_table_name}{}).Where("id in (?)", connect.${be_connect_table_name}Id).Find(&list).Error; err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -714,14 +714,14 @@ func Update${connect_table_name}(req ${req_name}, tx *gorm.DB) error {
 	if len(req.${be_connect})
 
 
-	if err := tx.Model(${model}.${connect_table_name}{}).Where("${where}",${param}).Delete(&model.YtfAdvIndustryPeople{}).Error; err != nil {
+	if err := tx.Model(${models}.${connect_table_name}{}).Where("${where}",${param}).Delete(&models.YtfAdvIndustryPeople{}).Error; err != nil {
 		return errors.WithStack(err)
 	}
 
 	// 处理关联数据
-	connect := make([]${model}.${connect_table_name}, 0, len(req.${connect_table_name}Ids))
+	connect := make([]${models}.${connect_table_name}, 0, len(req.${connect_table_name}Ids))
 	for _, id := range req.YtfAdvPeopleTargetIds {
-		connect = append(connect, model.YtfAdvIndustryPeople{
+		connect = append(connect, models.YtfAdvIndustryPeople{
 			${fix}
 			${name}Id: param.Id,     
 			${be_connect_table_name}Id:   id,  
@@ -729,7 +729,7 @@ func Update${connect_table_name}(req ${req_name}, tx *gorm.DB) error {
 	}
 
 	// 添加关联表
-	if err := tx.Model(&model.YtfAdvIndustryPeople{}).Create(&connect).Error; err != nil {
+	if err := tx.Model(&models.YtfAdvIndustryPeople{}).Create(&connect).Error; err != nil {
 		return errors.WithStack(err)
 	}
 	return nil 

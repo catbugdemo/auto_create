@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -103,6 +104,29 @@ func Find(db *sqlx.DB, str interface{}, arg ...string) error {
 	return nil
 }
 
+func Count(db *sqlx.DB, str interface{}, arg ...string) (int, error) {
+	var where string
+	if len(arg) > 0 {
+		where = arg[0]
+	}
+
+	of := reflect.ValueOf(str)
+	if of.Kind() != reflect.Ptr {
+		return 0, errors.New("it should be a pointer")
+	}
+	methodByName := of.MethodByName("Table").Call([]reflect.Value{})
+
+	query := fmt.Sprintf("select count(*) from %s %s",
+		methodByName[0].String(),
+		where)
+	log.Printf("%s", query)
+	var count int
+	if err := db.Get(&count, query); err != nil {
+		return 0, errors.WithStack(err)
+	}
+	return count, nil
+}
+
 // 1.判断哪些参数存在
 // 2.添加相应参数
 func Insert(db *sqlx.DB, str interface{}) error {
@@ -194,4 +218,39 @@ func IsBlank(value reflect.Value) bool {
 		return value.IsNil()
 	}
 	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
+}
+
+// 获取 limit, offset
+func ToLimitOffset(sizeIn string, indexIn string, count int) (limit int, offset int) {
+	size, _ := strconv.Atoi(sizeIn)
+	index, _ := strconv.Atoi(indexIn)
+	if size == 0 {
+		size = 10
+	}
+
+	if index == 0 {
+		index = 1
+	}
+	//1
+	if count == 0 {
+		return size, 0
+	}
+	var pageMax int
+	//1%10
+	if count%size == 0 {
+		pageMax = count / size
+	} else {
+		//1
+		pageMax = count/size + 1
+	}
+	//1<=1
+	if pageMax <= index {
+		index = pageMax
+	}
+	offset = size * (index - 1)
+
+	if offset == -10 {
+		offset = 0
+	}
+	return size, offset
 }

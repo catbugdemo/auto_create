@@ -31,8 +31,8 @@ func TestGenerateController(t *testing.T) {
 // 生成底层模板
 func TestModels(t *testing.T) {
 	normal := Normal{
-		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
-		TableName:  "smb_wechat_pay_return",
+		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "ytf", "disable", "ytf@2021"),
+		TableName:  "ytf_adviser_building",
 		Driver:     "postgres",
 	}
 
@@ -43,14 +43,15 @@ func TestModels(t *testing.T) {
 
 func TestSqlx(t *testing.T) {
 	normal := Normal{
-		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
-		TableName:  "smb_wechat_pay_return",
-		Driver:     "postgres",
+		//DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
+		DataSource: fmt.Sprint("new_retailers:mnHL63mzzNX2GyYd@tcp(1.15.221.224:3306)/new_retailers"),
+		TableName:  "adv_shop_online_customer",
+		Driver:     "mysql",
 	}
 
 	generate, err := AutoGenerateSqlx(&normal)
 	assert.Nil(t, err)
-	fmt.Printf(generate)
+	fmt.Println(generate)
 }
 
 // 自动生成 crud
@@ -68,42 +69,51 @@ func TestCRUD(t *testing.T) {
 	st := St{
 		Stru:        YtfAdvAccountInfo{},
 		DbConfig:    `c.MustGet(DB_CONFIG).(*gorm.DB)`,
-		ModelsName:  "model.YtfAdvAccountInfo",
+		ModelsName:  "models.YtfAdvAccountInfo",
 		RedisConfig: `c.MustGet(REDIS_TOKEN).(*redis.Pool).Get()`,
 		Handlers:    "handlers",
+		Info: map[string]interface{}{
+			"tag": "测试",
+		},
 	}
 
 	fmt.Printf(AutoGenerateCRUD(&st))
 }
 
 func TestSqlxCrud(t *testing.T) {
-	type Str struct {
+	type AdvShopOnlineCustomer struct {
+		Id          int       `gorm:"column:id;default:" json:"id" form:"id" db:"id"`                                             // 自增id
+		CreateTime  time.Time `gorm:"column:create_time;default:" json:"create_time" form:"create_time" db:"create_time"`         // 创建时间
+		Name        string    `gorm:"column:name;default:" json:"name" form:"name" db:"name"`                                     // 商户名称
+		NickName    string    `gorm:"column:nick_name;default:" json:"nick_name" form:"nick_name" db:"nick_name"`                 // 商户昵称
+		IconUrl     string    `gorm:"column:icon_url;default:" json:"icon_url" form:"icon_url" db:"icon_url"`                     // 头像url
+		IconMediaId string    `gorm:"column:icon_media_id;default:" json:"icon_media_id" form:"icon_media_id" db:"icon_media_id"` // 微信头像id
+		ShopId      int       `gorm:"column:shop_id;default:" json:"shop_id" form:"shop_id" db:"shop_id"`                         // 商户id
+		BusinessId  int       `gorm:"column:business_id;default:" json:"business_id" form:"business_id" db:"business_id"`         // 商户在线id
+		Status      int       `gorm:"column:status;default:" json:"status" form:"status" db:"status"`                             // 1:正常 2:删除
 	}
 	st := St{
-		Stru:     Str{},
-		DbConfig: `c.MustGet(DB_CONFIG).(*gorm.DB)`,
+		Stru:     AdvShopOnlineCustomer{},
+		DbConfig: `c.MustGet(DB_CONFIG).(*sqlx.DB)`,
 		Info: map[string]interface{}{
-			"bind_json":    "",
-			"service_json": "",
-			"success_json": "",
+			"tag": "测试",
 		},
 	}
-	fmt.Print(AutoGenerateSqlxControl(&st))
+	fmt.Println(AutoGenerateSqlxControl(&st))
 }
 
 func TestModelConvert(t *testing.T) {
 	var sql = `
-create table smb_province_code(
-  id serial primary key not null, 
-  create_time timestamp with time zone DEFAULT now(),
-	create_date date NULL DEFAULT 'now'::text::date,
+create table ytf_adviser_building (
+  id int not null default 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
   
-  province varchar not null default '', -- 省
-  city varchar not null default '', -- 市
-  area varchar not null default ''-- 区
-  code int not null default 0,  -- 编码
-);
-create index on smb_province_code(province,city,area);
+  adviser_id int not null default 0, -- 置业顾问id 
+  merchant_id int not null default 0 , -- 商户 id 
+  building_id int not null default 0, -- 楼盘id 
+)
+create unique index on ytf_adviser_building(adviser_id,merchant_id,building_id)
 `
 
 	fmt.Println(model_convert.GenerateNote(sql))

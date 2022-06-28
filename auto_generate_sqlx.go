@@ -1,11 +1,8 @@
 package auto
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/catbugdemo/errors"
 	"strings"
-	"text/template"
 )
 
 func AutoGenerateSqlx(way Way) (string, error) {
@@ -65,6 +62,9 @@ func (m *{{.struct_name}}) Find(db *sqlx.DB, arg ...string) ([]{{.struct_name}},
 
 func (m *{{.struct_name}}) First(db *sqlx.DB, arg ...string) error {
 	// limit , offset
+	if len(arg) == 0 {
+		arg = append(arg,"")
+	}
 	arg = append(arg, "1")
 	find, err := m.Find(db, arg...)
 	if err != nil {
@@ -93,7 +93,8 @@ func (m *{{.struct_name}}) IfExist(db *sqlx.DB, arg string) error {
 	return nil
 }
 
-func (m *{{.struct_name}}) FindByCount(db *sqlx.DB, arg ...string) ([]SmbVocherDetailLog, int, error) {
+// 删除
+func (m *{{.struct_name}}) FindByCount(db *sqlx.DB, arg ...string) ([]{{.struct_name}}, int, error) {
 	var conditon string
 	if len(arg) > 0 {
 		conditon = arg[0]
@@ -112,44 +113,47 @@ func (m *{{.struct_name}}) FindByCount(db *sqlx.DB, arg ...string) ([]SmbVocherD
 	return list, count, nil
 }
 
-func (m *{{.struct_name}}) FirstById(db *sqlx.DB, id int) error {
-	condition := fmt.Sprintf("where id=%d", id)
+func (m *{{.struct_name}}) FirstById(db *sqlx.DB, id interface{}) error {
+	condition := fmt.Sprintf("WHERE id=%v", id)
 	if err := m.IfExist(db, condition); err != nil {
 		return errors.WithStack(err)
 	}
-	return m.First(db, fmt.Sprintf("where id=%d", id))
+	return m.First(db, condition)
 }
 
-func (m *{{.struct_name}}) UpdateById(db *sqlx.DB, id int) error {
-	condition := fmt.Sprintf("where id=%d", id)
+func (m *{{.struct_name}}) UpdateById(db *sqlx.DB, id interface{}) error {
+	condition := fmt.Sprintf("WHERE id=%v", id)
 	if err := m.IfExist(db, condition); err != nil {
 		return errors.WithStack(err)
 	}
-	return m.Update(db, fmt.Sprintf("where id=%d", id))
+	return m.Update(db, condition)
 }
 
-func (m *{{.struct_name}}) DeleteById(db *sqlx.DB, id int) error {
-	condition := fmt.Sprintf("where id=%d", id)
+func (m *{{.struct_name}}) DeleteById(db *sqlx.DB, id interface{}) error {
+	condition := fmt.Sprintf("WHERE id=%v", id)
 	if err := m.IfExist(db, condition); err != nil {
 		return errors.WithStack(err)
 	}
-	return m.Delete(db, fmt.Sprintf("where id=%d", id))
+	return m.Delete(db, condition)
 }
 
 `
 	str = strings.ReplaceAll(str, "${type_struct}", getTypeStruct(columns))
 	str = strings.ReplaceAll(str, "${auto_where}", n.autoWhere(columns))
-	tt := template.Must(template.New("model").Parse(str))
-	vals := map[string]string{
-		"package":     n.Package,
-		"struct_name": n.Info["struct_name"].(string),
-		"table_name":  n.TableName,
-	}
-	var buf bytes.Buffer
-	if err := tt.Execute(&buf, vals); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	str = strings.ReplaceAll(str, "{{.package}}", n.Package)
+	str = strings.ReplaceAll(str, "{{.struct_name}}", n.Info["struct_name"].(string))
+	str = strings.ReplaceAll(str, "{{.table_name}}", n.TableName)
+	/*	tt := template.Must(template.New("models").Parse(str))
+		vals := map[string]string{
+			"package":     n.Package,
+			"struct_name": n.Info["struct_name"].(string),
+			"table_name":  n.TableName,
+		}
+		var buf bytes.Buffer
+		if err := tt.Execute(&buf, vals); err != nil {
+			return "", err
+		}*/
+	return str, nil
 }
 
 // 自动生成条件
@@ -165,10 +169,9 @@ func (n Normal) autoWhere(columns []Column) string {
 		if in(column.ColumnType, []string{"date", "datetime", "timestamp", "timestamp with time zone"}) {
 			continue
 		}
-		fmt.Print()
 		var str = `
 	if m.${value_name} != ${type} {
-		params = append(params,fmt.Sprint("${tmp_name}='",m.${value_name},"'"))
+		params = append(params,fmt.Sprintf("${tmp_name}='%v'",m.${value_name}))
 	}
 `
 		str = strings.ReplaceAll(str, "${value_name}", underLineToHump(column.ColumnName))
@@ -205,6 +208,15 @@ func CheckType(s string) string {
 		}
 		if in(s, []string{"bytea", "jsonb"}) {
 			return "nil"
+		}
+	}
+	// mysql
+	{
+		if contaion("int", s) {
+			return "0"
+		}
+		if contaion("varchar", s) {
+			return "\"\""
 		}
 	}
 	return ""
