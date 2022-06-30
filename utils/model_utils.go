@@ -1,4 +1,4 @@
-package auto
+package utils
 
 import (
 	"fmt"
@@ -189,7 +189,10 @@ func ReflectFindDb(model reflect.Value) ([]string, []interface{}, error) {
 func ReturnDolor(length int) string {
 	params := make([]string, 0, length)
 	for i := 1; i <= length; i++ {
+		// postgres
 		params = append(params, fmt.Sprintf("$%d", i))
+		// mysql
+		// params = append(params, "?")
 	}
 	return strings.Join(params, ",")
 }
@@ -197,7 +200,10 @@ func ReturnDolor(length int) string {
 func ReturnEqual(params []string) string {
 	tmp := make([]string, 0, len(params))
 	for i, param := range params {
+		// postgres
 		tmp = append(tmp, fmt.Sprintf("%s=$%d", param, i+1))
+		// mysql
+		// tmp = append(tmp, fmt.Sprintf("%s=?", param))
 	}
 	return strings.Join(tmp, ",")
 }

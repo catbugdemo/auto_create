@@ -1,5 +1,3 @@
-# 自动生成 不再烦恼
-
 ## 自动生成 crud
 ```go
 
@@ -7,70 +5,57 @@
 ```
 
 
-## 自动生成 models
+## 自动生成 models -- 支持 sqlx 
 
 ```go
-
-func TestModels(t *testing.T) {
+func TestSqlx(t *testing.T) {
 	normal := Normal{
-		DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "127.0.0.1", "5432", "postgres", "mydb", "disable", "123456"),
-		TableName:  "tmp_user",
-		Driver:     "postgres",
+		//DataSource: fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s password=%s", "1.117.233.151", "5432", "ytf", "smb", "disable", "ytf@2021"),
+		DataSource: fmt.Sprint("new_retailers:mnHL63mzzNX2GyYd@tcp(1.15.221.224:3306)/new_retailers"),
+		TableName:  "adv_shop_online_customer",
+		Driver:     "mysql",
 	}
 
-	generate, err := AutoGenerateModel(&normal)
+	generate, err := AutoGenerateSqlx(&normal)
 	assert.Nil(t, err)
-	fmt.Printf(generate)
+	fmt.Println(generate)
 }
+
 ```
 
-## 自动生成 contrller 层
+## 自动生成 controller -- 支持 sqlx 
 ```go
-// 生成 Controller 层
-func TestGenerateController(t *testing.T) {
-	c := Control{
-		ControlName: "GetPages", // 输入创建名称
-		Describe:    "获取落地页",    // 输入描述 -- 可不填
-		
-		// 是否需要绑定参数
-		Req: Req{
-			ReqBool: true, // 是否需要手动填写绑定参数，推荐3个以内为true
-			Req:     "",   // 请求名称,如果 ReqBool == true 不填
+
+func TestSqlxCrud(t *testing.T) {
+	type AdvShopOnlineCustomer struct {
+		Id          int       `gorm:"column:id;default:" json:"id" form:"id" db:"id"`                                             // 自增id
+		CreateTime  time.Time `gorm:"column:create_time;default:" json:"create_time" form:"create_time" db:"create_time"`         // 创建时间
+		Name        string    `gorm:"column:name;default:" json:"name" form:"name" db:"name"`                                     // 商户名称
+		NickName    string    `gorm:"column:nick_name;default:" json:"nick_name" form:"nick_name" db:"nick_name"`                 // 商户昵称
+		IconUrl     string    `gorm:"column:icon_url;default:" json:"icon_url" form:"icon_url" db:"icon_url"`                     // 头像url
+		IconMediaId string    `gorm:"column:icon_media_id;default:" json:"icon_media_id" form:"icon_media_id" db:"icon_media_id"` // 微信头像id
+		ShopId      int       `gorm:"column:shop_id;default:" json:"shop_id" form:"shop_id" db:"shop_id"`                         // 商户id
+		BusinessId  int       `gorm:"column:business_id;default:" json:"business_id" form:"business_id" db:"business_id"`         // 商户在线id
+		Status      int       `gorm:"column:status;default:" json:"status" form:"status" db:"status"`                             // 1:正常 2:删除
+	}
+	st := St{
+		Stru:     AdvShopOnlineCustomer{},
+		DbConfig: `c.MustGet(DB_CONFIG).(*sqlx.DB)`,
+		Info: map[string]interface{}{
+			"tag": "测试",
 		},
-		DbConfig: "c.MustGet(DB_CONFIG).(*gorm.DB)",
-
-		ServiceStr:     "",   // 一般不填 service层名称 一般只有 2 个返回 data,err
-		ReturnDataBool: true, // 是否需要返回数据
-
-		LogOrSave: "", // 默认不填
 	}
-	fmt.Println(GenerateController(c))
+	fmt.Println(AutoGenerateSqlxControl(&st))
 }
+
 ```
 
-- 将会自动生成
+## 需要导入包
 ```go
-// 获取落地页
-func GetPages(c *gin.Context) {
-	type Req struct {
-	// TODO 请填写请求参数
-	}
-	var req Req
-	if err := c.Bind(&req); err != nil {
-		log.Printf("%+v",errors.WithStack(err))
-		c.JSON(200, gin.H{"code": 1, "msg": "request binding failed", "debug": err.Error()})
-		return
-	}
+/utils/model_utils.go
+// 如果是 mysql -- 将 model_utils.go 中 mysql  注释释放
 
-	db := c.MustGet(DB_CONFIG).(*gorm.DB)
-	data, err := service.GetPages(req, db)
-	if err != nil {
-		log.Printf("%+v",errors.WithStack(err))
-		c.JSON(200, gin.H{"code": 2, "msg": "service operate failed", "debug": err.Error()})
-		return
-	}
-	
-	log.Printf("way:%v ; req:%v ; data:%v ;", "GetPages", req, data)
-	c.JSON(200, gin.H{"code": 0, "msg": "success", "data": data})
-}
+// 例 
+// mysql 
+// params = append(params, "?")
 ```
